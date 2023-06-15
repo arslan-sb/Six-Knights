@@ -1,3 +1,4 @@
+import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter/material.dart';
 import 'package:sixknight/homescreen.dart';
 import 'game_board.dart';
@@ -5,6 +6,8 @@ import 'game_board.dart';
 void main() async
 {
   WidgetsFlutterBinding.ensureInitialized();
+  //await FlameAudio().initialize();
+
   runApp(const MyApp());
 
 }
