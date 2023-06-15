@@ -3,16 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:sixknight/components/piece.dart';
 import 'package:sixknight/components/square.dart';
 import 'package:sixknight/helper/helper.dart';
-import 'package:sixknight/multiplayer.dart';
 
-class GameBoard extends StatefulWidget {
-  const GameBoard({super.key});
+class MultiPlayer extends StatefulWidget {
+  const MultiPlayer({super.key});
 
   @override
-  State<GameBoard> createState() => _GameBoardState();
+  State<MultiPlayer> createState() => _MultiPlayerState();
 }
 
-class _GameBoardState extends State<GameBoard> {
+class _MultiPlayerState extends State<MultiPlayer> {
 
   Piece? selectedPiece;
   int selectedRow=-1;
@@ -27,6 +26,7 @@ class _GameBoardState extends State<GameBoard> {
 
 //board using 2d list
   late List<List<Piece?>> board;
+  bool isWhitesTurn = true;
   int count=0;
 
   void _initializeBoard() {
@@ -36,16 +36,17 @@ class _GameBoardState extends State<GameBoard> {
       newBoard[0][i] = Piece(
           typed: PieceType.knight,
           isWhite: true,
-          imagePath: "lib/images/knight.png"
+          imagePath: "lib/images/k.png"
       );
       newBoard[3][i] = Piece(
           typed: PieceType.knight,
           isWhite: false,
-          imagePath: "lib/images/knight.png"
+          imagePath: "lib/images/k.png"
       );
     }
     board = newBoard;
   }
+
 
   void selectedpiece(int row,int col){
     setState(() {
@@ -60,6 +61,7 @@ class _GameBoardState extends State<GameBoard> {
       {
         movepiece(row, col);
       }
+      aiMove();
     });
   }
   List<List<int>> calrawvalidmoves(int row,int col, Piece? selp) {
@@ -94,12 +96,12 @@ class _GameBoardState extends State<GameBoard> {
   void movepiece(int newrow, int newcol){
     board[newrow][newcol]=selectedPiece;
     board[selectedRow][selectedCol]=null;
-    count++;
     setState(() {
       selectedPiece=null;
       selectedRow=-1;
       selectedCol=-1;
       validmoves=[];
+      count++;
     });
     checkcomplete();
   }
@@ -140,7 +142,6 @@ class _GameBoardState extends State<GameBoard> {
     {
       terminate=true;
     }
-
     // Show dialog if game is complete
     if (isComplete) {
       showDialog(
@@ -149,7 +150,7 @@ class _GameBoardState extends State<GameBoard> {
           String winnerText = isWhiteWinner ? "Black" : "White";
           return AlertDialog(
             title: Text('Game Over'),
-            content: Text('Congratulations! player has Solved the puzzle in $count moves.'),
+            content: Text('Congratulations! $winnerText player has won the game.'),
             actions: [
               TextButton(
                 child: Text('Quit'),
@@ -167,7 +168,8 @@ class _GameBoardState extends State<GameBoard> {
           );
         },
       );
-    } if (terminate) {
+    }
+    if (terminate) {
       showDialog(
         context: context,
         builder: (BuildContext context) {
@@ -195,77 +197,96 @@ class _GameBoardState extends State<GameBoard> {
     }
   }
 
+
   void resetGame()
   {
     Navigator.pop(context);
     _initializeBoard();
     setState(() {});
   }
-  // List<List<int>> calculateAllValidMoves(bool isWhite) {
-  //   List<List<int>> allValidMoves = [];
-  //
-  //   // Iterate over the board and calculate valid moves for all pieces
-  //   for (int row = 0; row < board.length; row++) {
-  //     for (int col = 0; col < board[0].length; col++) {
-  //       Piece? piece = board[row][col];
-  //       if (piece != null && piece.isWhite == isWhite) {
-  //         List<List<int>> pieceValidMoves = calrawvalidmoves(row, col, piece);
-  //
-  //         // Filter out moves that result in capturing other pieces, including the player's knights
-  //         pieceValidMoves = pieceValidMoves.where((move) {
-  //           int targetRow = move[0];
-  //           int targetCol = move[1];
-  //
-  //           // Check if the target position is within the board boundaries
-  //           if (!isinboard(targetRow, targetCol)) {
-  //             return false;
-  //           }
-  //
-  //           Piece? targetPiece = board[targetRow][targetCol];
-  //           return targetPiece == null || (targetPiece.isWhite != isWhite && targetPiece.typed != PieceType.knight);
-  //         }).toList();
-  //
-  //         allValidMoves.addAll(pieceValidMoves.map((move) => [row, col] + move));
-  //       }
-  //     }
-  //   }
-  //
-  //   return allValidMoves;
-  // }
-  //
-  //
-  //
-  //
-  // Future<void> aiMove(bool isWhite) async {
-  //   List<List<int>> allValidMoves = calculateAllValidMoves(isWhite);
-  //
-  //   if (allValidMoves.isNotEmpty) {
-  //     // Exclude moves that capture the player's knights
-  //     List<List<int>> filteredMoves = allValidMoves.where((move) {
-  //       Piece? targetPiece = board[move[2]][move[3]];
-  //       return targetPiece == null || (targetPiece.isWhite != isWhite || targetPiece.typed != PieceType.knight);
-  //     }).toList();
-  //
-  //     if (filteredMoves.isEmpty) {
-  //       return;  // No valid moves available
-  //     }
-  //
-  //     // Choose a random valid move from the filtered moves
-  //     List<int> randomMove = filteredMoves[Random().nextInt(filteredMoves.length)];
-  //
-  //     // Simulate a delay for the AI move
-  //     await Future.delayed(Duration(seconds: 1));
-  //
-  //     // Make the move
-  //     setState(() {
-  //       board[randomMove[2]][randomMove[3]] = board[randomMove[0]][randomMove[1]];
-  //       board[randomMove[0]][randomMove[1]] = null;
-  //     });
-  //
-  //     checkcomplete();
-  //   }
-  // }
 
+  // scoring function that returns the number of valid moves for the AI player
+  int score(List<List<Piece?>> Board) {
+    int score = 0;
+    for (int row = 0; row < board.length; row++) {
+      for (int col = 0; col < board[0].length; col++) {
+        Piece? piece = board[row][col];
+        if (piece != null && piece.isWhite && piece.typed == PieceType.knight) {
+          score += calrawvalidmoves(row, col, piece).length;
+        }
+      }
+    }
+    return score;
+  }
+
+// minimax function that chooses the best move for the AI player
+  List<int> minimax( List<List<Piece?>> board, int depth, bool maximizingPlayer) {
+    if (depth == 0) {
+      return [score(board), -1, -1, -1, -1];  // return [score, oldRow, oldCol, newRow, newCol]
+    }
+
+    if (maximizingPlayer) {
+      int maxScore = -1;
+      List<int> maxMove = [-1, -1, -1, -1];
+
+      for (int row = 0; row < board.length; row++) {
+        for (int col = 0; col < board[0].length; col++) {
+          Piece? piece = board[row][col];
+          if (piece != null && piece.isWhite && piece.typed == PieceType.knight) {
+            List<List<int>> validMoves = calrawvalidmoves(row, col, piece);
+            for (List<int> move in validMoves) {
+              late List<List<Piece?>> newBoard = board;  // clone the board to avoid modifying the original
+              newBoard[move[0]][move[1]] = newBoard[row][col];
+              newBoard[row][col] = null;
+              List<int> result = minimax(newBoard, depth - 1, false);
+              if (result[0] > maxScore) {
+                maxScore = result[0];
+                maxMove = [row, col] + move;
+              }
+            }
+          }
+        }
+      }
+
+      return [maxScore] + maxMove;
+    } else {
+      int minScore = 9999;
+      List<int> minMove = [-1, -1, -1, -1];
+
+      for (int row = 0; row < board.length; row++) {
+        for (int col = 0; col < board[0].length; col++) {
+          Piece? piece = board[row][col];
+          if (piece != null && !piece.isWhite && piece.typed == PieceType.knight) {
+            List<List<int>> validMoves = calrawvalidmoves(row, col, piece);
+            for (List<int> move in validMoves) {
+              late List<List<Piece?>> newBoard = board;  // clone the board to avoid modifying the original
+              newBoard[move[0]][move[1]] = newBoard[row][col];
+              newBoard[row][col] = null;
+              List<int> result = minimax(newBoard, depth - 1, true);
+              if (result[0] < minScore) {
+                minScore = result[0];
+                minMove = [row, col] + move;
+              }
+            }
+          }
+        }
+      }
+
+      return [minScore] + minMove;
+    }
+  }
+  Future<void> aiMove() async {
+    List<int> bestMove = minimax(board, 2, true);  // 2 is the depth of the search tree
+    if (bestMove[1] == -1) return;  // no valid move found
+
+    // Make the move
+    setState(() {
+      board[bestMove[3]][bestMove[4]] = board[bestMove[1]][bestMove[2]];
+      board[bestMove[1]][bestMove[2]] = null;
+    });
+
+    checkcomplete();
+  }
 
 
 // class _GameBoardState extends State<GameBoard> {
@@ -279,72 +300,42 @@ class _GameBoardState extends State<GameBoard> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-        debugShowCheckedModeBanner: false,
         home: Scaffold(
           backgroundColor: Colors.grey,
-          appBar: AppBar(
-            title: Text('Six Knights'),
-            actions: [
-              PopupMenuButton<String>(
-                onSelected: (value) {
-                  if(value == 'Single Player'){
-                    // Add your logic for single player mode here
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const GameBoard()),
-                    );
-                  }
-                  else if(value == 'Multi Player'){
-                    // Add your logic for multi player mode here
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const MultiPlayer()),
-                    );
-                  }
-                },
-                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                  const PopupMenuItem<String>(
-                    value: 'Single Player',
-                    child: Text('Single Player'),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'Multi Player',
-                    child: Text('Multi Player'),
-                  ),
-                ],
-              ),
-            ],
+          appBar: AppBar(title: Text('Six Knights'),
             centerTitle: true,
             backgroundColor: Colors.blueAccent,
           ),
-
-
-            body: GridView.builder(
-              itemCount: 3 * 4,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3),
-              itemBuilder: (context, index) {
-                int row = index ~/ 3;
-                int col = index % 3;
-                bool isWhite = (index) % 2 == 0;
-                bool isSelect = selectedRow == row && selectedCol == col;
-                bool isvalidmove=false;
-                for(var position in validmoves)
-                {
-                  if(position[0]==row && position[1]==col)
-                  {
-                    isvalidmove=true;
-                  }
-                }
-                return Square(
-                  isWhite: isWhite,
-                  piece: board[row][col],
-                  isSelected: isSelect,
-                  isvalid: isvalidmove,
-                  onTap:() => selectedpiece(row,col),
-                  multi: false,
-                );
-              }),
+          body: Column(
+            children: [
+              GridView.builder(
+                  itemCount: 3 * 4,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3),
+                  itemBuilder: (context, index) {
+                    int row = index ~/ 3;
+                    int col = index % 3;
+                    bool isWhite = (index) % 2 == 0;
+                    bool isSelect = selectedRow == row && selectedCol == col;
+                    bool isvalidmove=false;
+                    for(var position in validmoves)
+                    {
+                      if(position[0]==row && position[1]==col)
+                      {
+                        isvalidmove=true;
+                      }
+                    }
+                    return Square(
+                      isWhite: isWhite,
+                      piece: board[row][col],
+                      isSelected: isSelect,
+                      isvalid: isvalidmove,
+                      onTap:() => selectedpiece(row,col),
+                      multi: true,
+                    );
+                  }),
+            ],
+          ),
         )
     );
   }
